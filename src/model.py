@@ -4,68 +4,55 @@ import torch.nn as nn
 
 # define the CNN architecture
 class MyModel(nn.Module):
-    def __init__(self, num_classes: int = 1000, dropout: float = 0.7) -> None:
+    """Custom CNN for 50-class landmark classification.
 
+    5 conv blocks with doubling channels (32 -> 512), BatchNorm, ReLU,
+    MaxPool. AdaptiveAvgPool + Dropout + Linear classifier head. ~1.6M
+    params - small enough to train from scratch on ~5k images without
+    severe overfitting, large enough to separate 50 landmark classes.
+    """
+
+    def __init__(self, num_classes: int = 1000, dropout: float = 0.3) -> None:
         super().__init__()
 
-        # VGG-style CNN with double convolutions per block and higher channel counts
-        # Input: 3x224x224
+        # Input: 3 x 224 x 224
         self.features = nn.Sequential(
-            # Block 1: 3 -> 64, output 112x112
-            nn.Conv2d(3, 64, 3, padding=1),
+            # Block 1: 3 -> 32, 224 -> 112
+            nn.Conv2d(3, 32, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, 2),
+            # Block 2: 32 -> 64, 112 -> 56
+            nn.Conv2d(32, 64, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, 3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(2, 2),
-            # Block 2: 64 -> 128, output 56x56
-            nn.Conv2d(64, 128, 3, padding=1),
+            # Block 3: 64 -> 128, 56 -> 28
+            nn.Conv2d(64, 128, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.Conv2d(128, 128, 3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(2, 2),
-            # Block 3: 128 -> 256, output 28x28
-            nn.Conv2d(128, 256, 3, padding=1),
+            # Block 4: 128 -> 256, 28 -> 14
+            nn.Conv2d(128, 256, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(256),
-            nn.ReLU(),
-            nn.Conv2d(256, 256, 3, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(2, 2),
-            # Block 4: 256 -> 512, output 14x14
-            nn.Conv2d(256, 512, 3, padding=1),
+            # Block 5: 256 -> 512, 14 -> 7
+            nn.Conv2d(256, 512, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(512),
-            nn.ReLU(),
-            nn.Conv2d(512, 512, 3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
-            # Block 5: 512 -> 512, output 7x7
-            nn.Conv2d(512, 512, 3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-            nn.Conv2d(512, 512, 3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(2, 2),
         )
 
-        # Global Average Pooling + classifier
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
-            nn.Linear(512, 256),
-            nn.ReLU(),
             nn.Dropout(p=dropout),
-            nn.Linear(256, num_classes),
+            nn.Linear(512, num_classes),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.features(x)
-        x = self.avgpool(x)
         x = self.classifier(x)
         return x
 
