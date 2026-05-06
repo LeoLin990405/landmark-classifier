@@ -7,3 +7,8 @@ __pycache__/
 landmark_images/
 data/
 .env
+_backup/
+*.ipynb.bak
+submission_*.tar.gz
+submission_*.zip
+static_images/
